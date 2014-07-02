@@ -3,8 +3,10 @@
 namespace amnah\yii2\user;
 
 use Yii;
+use yii\base\Security;
 use yii\db\ActiveRecord;
 use yii\base\InvalidConfigException;
+use yii\di\Instance;
 
 /**
  * User module
@@ -101,6 +103,11 @@ class Module extends \yii\base\Module
     public $modelClasses = [];
 
     /**
+     * @var string|\yii\base\Security Security component used by user model to verify password and generating hashes
+     */
+    public $security = 'security';
+
+    /**
      * @var array Storage for models based on $modelClasses
      */
     protected $_models;
@@ -136,6 +143,9 @@ class Module extends \yii\base\Module
 
         // override modelClasses
         $this->modelClasses = array_merge($this->getDefaultModelClasses(), $this->modelClasses);
+
+        // link security component
+        $this->security = Instance::ensure($this->security, Security::className());
 
         // set alias
         $this->setAliases([

@@ -114,6 +114,8 @@ class UserKey extends ActiveRecord
      */
     public static function generate($userId, $type, $expireTime = null)
     {
+        $security = Yii::$app->getModule("user")->security;
+
         // attempt to find existing record
         // otherwise create new
         $model = static::findActiveByUser($userId, $type);
@@ -126,7 +128,7 @@ class UserKey extends ActiveRecord
         $model->type        = $type;
         $model->create_time = date("Y-m-d H:i:s");
         $model->expire_time = $expireTime;
-        $model->key         = Security::generateRandomKey();
+        $model->key         = $security->generateRandomKey();
         $model->save(false);
         return $model;
     }
