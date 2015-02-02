@@ -53,6 +53,11 @@ class User extends ActiveRecord implements IdentityInterface
     const STATUS_UNCONFIRMED_EMAIL = 2;
 
     /**
+     * @var string Current password - for account page updates
+     */
+    public $currentPassword;
+
+    /**
      * @var string New password - for registration and changing password
      */
     public $newPassword;
@@ -63,10 +68,10 @@ class User extends ActiveRecord implements IdentityInterface
     public $newPasswordConfirm;
 
     /**
-     * @var string Current password - for account page updates
+     * @var array Permission cache array
      */
-    public $currentPassword;
-
+    protected $_access = [];
+    
     /**
      * @inheritdoc
      */
@@ -87,14 +92,14 @@ class User extends ActiveRecord implements IdentityInterface
             [['email', 'username'], 'unique'],
             [['email', 'username'], 'filter', 'filter' => 'trim'],
             [['email'], 'email'],
-            [['username'], 'match', 'pattern' => '/^[A-Za-z0-9_]+$/u', 'message' => "{attribute} can contain only letters, numbers, and '_'."],
+            [['username'], 'match', 'pattern' => '/^[A-Za-z0-9_]+$/u', 'message' => Yii::t('user', '{attribute} can contain only letters, numbers, and "_"')],
 
             // password rules
             [['newPassword'], 'string', 'min' => 3],
             [['newPassword'], 'filter', 'filter' => 'trim'],
             [['newPassword'], 'required', 'on' => ['register', 'reset']],
             [['newPasswordConfirm'], 'required', 'on' => ['reset']],
-            [['newPasswordConfirm'], 'compare', 'compareAttribute' => 'newPassword', 'message' => 'Passwords do not match'],
+            [['newPasswordConfirm'], 'compare', 'compareAttribute' => 'newPassword', 'message' => Yii::t('user','Passwords do not match')],
 
             // account page
             [['currentPassword'], 'required', 'on' => ['account']],
@@ -154,6 +159,8 @@ class User extends ActiveRecord implements IdentityInterface
 
             'currentPassword' => Yii::t('user', 'Current Password'),
             'newPassword'     => Yii::t('user', 'New Password'),
+            'newPasswordConfirm' => Yii::t('user', 'New Password Confirm'),
+
         ];
     }
 
@@ -400,12 +407,29 @@ class User extends ActiveRecord implements IdentityInterface
     /**
      * Check if user can do specified $permission
      *
-     * @param string $permission
+     * @param string    $permissionName
+     * @param array     $params
+     * @param bool      $allowCaching
      * @return bool
      */
-    public function can($permission)
+    public function can($permissionName, $params = [], $allowCaching = true)
     {
-        return $this->role->checkPermission($permission);
+         // check for auth manager rbac
+        $auth = Yii::$app->getAuthManager();
+        if ($auth) {
+            if ($allowCaching && empty($params) && isset($this->_access[$permissionName])) {
+                return $this->_access[$permissionName];
+            }
+            $access = $auth->checkAccess($this->getId(), $permissionName, $params);
+            if ($allowCaching && empty($params)) {
+                $this->_access[$permissionName] = $access;
+            }
+
+            return $access;
+        }
+
+        // otherwise use our own custom permission (via the role table)
+        return $this->role->checkPermission($permissionName);
     }
 
     /**
